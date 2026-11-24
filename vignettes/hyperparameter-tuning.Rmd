@@ -1,0 +1,57 @@
+---
+title: "Pareto-based hyperparameter tuning"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Pareto-based hyperparameter tuning}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+Tuning holds graphs, factor dimensions and preprocessing fixed. Each candidate
+has reconstruction loss R and **unweighted** roughness P, the sum of shared and
+local graph trace penalties before multiplying by smoothing parameters. Weighted
+penalties are unsuitable as the second objective because lambdas vary.
+
+Both objectives are min-max normalized over eligible candidates. A constant
+range maps to zero. The selected candidate minimizes
+$\sqrt{\widetilde R^2+\widetilde P^2}$. Strictly nondominated candidates are also
+reported. Exact distance ties select the first candidate in `expand.grid`
+order (shared lambda changes fastest). The normalization, and therefore the
+selected point, depends on the candidate grid.
+
+```{r}
+library(MSGPCA)
+s <- simulation_gg_blocks(nside=6,Jsp=8,Jmix=12,Jns=10,seed=101)
+f <- MSGPCA(lapply(s$Y_list,log1p),s$locs_list,n_shared=3,n_local=1,
+             lambda_shared=c(.1,.3,.6),lambda_local=c(.1,.3),
+             tuning='pareto',seed=101,verbose=FALSE)
+f$optimal_lambda_shared
+f$optimal_lambda_local
+f$pareto_results
+plot_pareto(f)
+```
+
+Use `lambda_constraint='shared_ge_local'` to require shared smoothing at least
+local smoothing when both components are active; default imposes no restriction.
+Disabled-component grids collapse to zero to avoid redundant fits.
+
+```{r, eval=FALSE}
+# Full empirical grid (kept out of routine vignette checks).
+f <- tune_MSGPCA(lapply(s$Y_list,log1p),s$locs_list,
+                 lambda_shared=seq(.1,.6,.1),lambda_local=seq(.1,.6,.1),
+                 n_shared=3,n_local=1,lambda_constraint='shared_ge_local',
+                 seed=101,verbose=FALSE)
+```
+
+Graphs are reused across candidates. Sparse factors are reused within each fit,
+including identical shared/local systems, but released between candidates to
+bound memory. Seeded initialization is consistent; no warm starts are used.
+Only scalar candidate diagnostics are retained; the winning model is refitted.
+
+Failed/nonfinite fits are excluded. Finite converged fits have priority. With
+`nonconverged='fallback'` (default), finite nonconverged fits are eligible only
+if no converged fit exists, with a warning. `nonconverged='exclude'` prohibits
+that fallback. No eligible candidate is an error. The table retains failure
+messages, iterations, timings, complete objective, convergence status, both
+roughness terms, normalized criteria, front membership and selection flag.
+NMI, ARI and truth labels are never used for tuning.

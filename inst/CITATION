@@ -1,0 +1,5 @@
+bibentry(bibtype='Manual',
+ title='MSGPCA: Multi-Slice Graph PCA for replicate-aware Spatial Omics analysis',
+ author=c(person('Anirban','Chakraborty'),person('Brian','Neelon'),
+ person('Andrew','Lawson'),person('Peggi','Angel'),person('Dongjun','Chung'),person('Souvik','Seal')),
+ note='Supplied manuscript; publication status and date not specified. Software version 0.1.0.')

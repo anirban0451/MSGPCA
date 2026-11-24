@@ -1,0 +1,78 @@
+---
+title: "Simulation with MSGPCA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Simulation with MSGPCA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+## Generating mechanism
+
+The original four binary patterns on a 6 by 6 block layout are expanded to an
+`nside` by `nside` lattice. Spatial vectors retain row-major block ordering;
+coordinates increase x first and decrease y between rows, as in the supplied
+script. The mean is $b+F_{sp}W^T+U_mV^T$. W and V assign one spatial and one
+nonspatial loading category per feature before category-specific weighting.
+Purely spatial genes have V=0; mixed genes combine spatial and nonspatial
+intensities; nonspatial genes have W=0. Slice-specific U contains independent
+Bernoulli(0.2) entries. Counts use `rnbinom(size=nb_shape,mu=mu)` with variance
+$\mu+\mu^2/\mathrm{nb\_shape}$. No extra dropout is added.
+
+```{r}
+library(MSGPCA)
+sim <- simulation_gg_blocks(nside=12,seed=101)
+names(sim)
+dim(sim$Y_list[[1]])
+sim$gene_groups
+sim$perturbations[c('affected_slices','intensity','mechanism')]
+```
+
+Defaults are 50 spatial + 300 mixed + 50 nonspatial = 400 features. The manuscript
+reports 500; the source does not specify that alternative composition. Changing
+feature counts is supported but does not establish exact manuscript reproduction.
+
+## Scenarios
+
+| Scenario | Mechanism | Default intensity |
+|---|---|---:|
+| none | Conserved baseline | 0 |
+| slab | Replace background counts in y <= 0.3 and x+y <= 0.9 masks | 20 |
+| wave | Replace background counts below sinusoidal boundary and x+y <= 0.9 | 8 |
+| centroid_shift | Add counts to purely spatial genes in slices 3--5 | 25 |
+
+Wave boundary is $0.5+0.15\sin(4\pi x)+0.04\cos(10\pi x)$.
+Replacement groups are disjoint contiguous background feature groups, each by
+default 20%, rounded as in the source. Other entries are unchanged. Centroid
+shifts leave slices 1--2 unchanged, add wave structure to slice 3, x+y >= 1.2 to
+slice 4, and a circle of squared radius 0.08 centered at (0.5,0.5) to slice 5.
+Any further slices remain unperturbed. This uses the implemented
+`inject_spatial_centroid_shifts()` mechanism; the script's undefined
+`inject_heterogeneous_features()` is not recreated from comments.
+
+```{r}
+slab <- simulation_gg_blocks(nside=6,scenario='slab',seed=101)
+none <- simulation_gg_blocks(nside=6,scenario='none',seed=101)
+cohort <- simulation_gg_blocks(nside=6,n_slices=5,
+                              scenario='centroid_shift',seed=101)
+length(cohort$true_cluster_labels)
+```
+
+## Ground truth and evaluation
+
+The simulation retains W, V, U for every slice and baseline patterns, allowing
+reconstruction of the generating mean. Exact masks, affected slices, intensities,
+feature indices and replacement/additive status identify every local operation.
+`true_local_patterns` is zero for unaffected slices. Conserved cluster labels
+always identify four original domains plus background, not perturbation masks.
+Generating loadings need not be orthogonal, unlike the fitted model.
+
+The reproducible experiment scripts under `experiments/` evaluate arithmetic
+entropy NMI, $2I/(H_A+H_B)$, ARI, pooled and mean-slice metrics separately, and
+subspace recovery after centering. Both constant partitions have NMI one; one
+constant partition against a nonconstant partition has NMI zero. Compare spans
+or canonical correlations instead of individual factor columns. Report leakage
+of local masks into shared scores alongside local recovery; local and shared
+patterns can themselves overlap, so leakage is not a uniquely identifiable
+parameter error. Fixed seeds restore the caller RNG state. One call generates
+one dataset and never writes files.

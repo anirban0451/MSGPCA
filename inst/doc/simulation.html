@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+<meta charset="utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+
+
+<title>Simulation with MSGPCA</title>
+
+<script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
+// be compatible with the behavior of Pandoc < 2.8).
+document.addEventListener('DOMContentLoaded', function(e) {
+  var hs = document.querySelectorAll("div.section[class*='level'] > :first-child");
+  var i, h, a;
+  for (i = 0; i < hs.length; i++) {
+    h = hs[i];
+    if (!/^h[1-6]$/i.test(h.tagName)) continue;  // it should be a header h1-h6
+    a = h.attributes;
+    while (a.length > 0) h.removeAttribute(a[0].name);
+  }
+});
+</script>
+
+<style type="text/css">
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
+
+
+
+<style type="text/css">
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
+</style>
+<style type="text/css" data-origin="pandoc">
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { display: inline-block; text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+{ counter-reset: source-line 0; }
+pre.numberSource code > span
+{ position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
+div.sourceCode
+{ }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
+</style>
+<script>
+// apply pandoc div.sourceCode style to pre.sourceCode instead
+(function() {
+  var sheets = document.styleSheets;
+  for (var i = 0; i < sheets.length; i++) {
+    if (sheets[i].ownerNode.dataset["origin"] !== "pandoc") continue;
+    try { var rules = sheets[i].cssRules; } catch (e) { continue; }
+    var j = 0;
+    while (j < rules.length) {
+      var rule = rules[j];
+      // check if there is a div.sourceCode rule
+      if (rule.type !== rule.STYLE_RULE || rule.selectorText !== "div.sourceCode") {
+        j++;
+        continue;
+      }
+      var style = rule.style.cssText;
+      // check if color or background-color is set
+      if (rule.style.color === '' && rule.style.backgroundColor === '') {
+        j++;
+        continue;
+      }
+      // replace div.sourceCode by a pre.sourceCode rule
+      sheets[i].deleteRule(j);
+      sheets[i].insertRule('pre.sourceCode{' + style + '}', j);
+    }
+  }
+})();
+</script>
+
+
+
+
+<style type="text/css">body {
+background-color: #fff;
+margin: 1em auto;
+max-width: 700px;
+overflow: visible;
+padding-left: 2em;
+padding-right: 2em;
+font-family: "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+font-size: 14px;
+line-height: 1.35;
+}
+#TOC {
+clear: both;
+margin: 0 0 10px 10px;
+padding: 4px;
+width: 400px;
+border: 1px solid #CCCCCC;
+border-radius: 5px;
+background-color: #f6f6f6;
+font-size: 13px;
+line-height: 1.3;
+}
+#TOC .toctitle {
+font-weight: bold;
+font-size: 15px;
+margin-left: 5px;
+}
+#TOC ul {
+padding-left: 40px;
+margin-left: -1.5em;
+margin-top: 5px;
+margin-bottom: 5px;
+}
+#TOC ul ul {
+margin-left: -2em;
+}
+#TOC li {
+line-height: 16px;
+}
+table {
+margin: 1em auto;
+border-width: 1px;
+border-color: #DDDDDD;
+border-style: outset;
+border-collapse: collapse;
+}
+table th {
+border-width: 2px;
+padding: 5px;
+border-style: inset;
+}
+table td {
+border-width: 1px;
+border-style: inset;
+line-height: 18px;
+padding: 5px 5px;
+}
+table, table th, table td {
+border-left-style: none;
+border-right-style: none;
+}
+table thead, table tr.even {
+background-color: #f7f7f7;
+}
+p {
+margin: 0.5em 0;
+}
+blockquote {
+background-color: #f6f6f6;
+padding: 0.25em 0.75em;
+}
+hr {
+border-style: solid;
+border: none;
+border-top: 1px solid #777;
+margin: 28px 0;
+}
+dl {
+margin-left: 0;
+}
+dl dd {
+margin-bottom: 13px;
+margin-left: 13px;
+}
+dl dt {
+font-weight: bold;
+}
+ul {
+margin-top: 0;
+}
+ul li {
+list-style: circle outside;
+}
+ul ul {
+margin-bottom: 0;
+}
+pre, code {
+background-color: #f7f7f7;
+border-radius: 3px;
+color: #333;
+white-space: pre-wrap; 
+}
+pre {
+border-radius: 3px;
+margin: 5px 0px 10px 0px;
+padding: 10px;
+}
+pre:not([class]) {
+background-color: #f7f7f7;
+}
+code {
+font-family: Consolas, Monaco, 'Courier New', monospace;
+font-size: 85%;
+}
+p > code, li > code {
+padding: 2px 0px;
+}
+div.figure {
+text-align: center;
+}
+img {
+background-color: #FFFFFF;
+padding: 2px;
+border: 1px solid #DDDDDD;
+border-radius: 3px;
+border: 1px solid #CCCCCC;
+margin: 0 5px;
+}
+h1 {
+margin-top: 0;
+font-size: 35px;
+line-height: 40px;
+}
+h2 {
+border-bottom: 4px solid #f7f7f7;
+padding-top: 10px;
+padding-bottom: 2px;
+font-size: 145%;
+}
+h3 {
+border-bottom: 2px solid #f7f7f7;
+padding-top: 10px;
+font-size: 120%;
+}
+h4 {
+border-bottom: 1px solid #f7f7f7;
+margin-left: 8px;
+font-size: 105%;
+}
+h5, h6 {
+border-bottom: 1px solid #ccc;
+font-size: 105%;
+}
+a {
+color: #0033dd;
+text-decoration: none;
+}
+a:hover {
+color: #6666ff; }
+a:visited {
+color: #800080; }
+a:visited:hover {
+color: #BB00BB; }
+a[href^="http:"] {
+text-decoration: underline; }
+a[href^="https:"] {
+text-decoration: underline; }
+
+code > span.kw { color: #555; font-weight: bold; } 
+code > span.dt { color: #902000; } 
+code > span.dv { color: #40a070; } 
+code > span.bn { color: #d14; } 
+code > span.fl { color: #d14; } 
+code > span.ch { color: #d14; } 
+code > span.st { color: #d14; } 
+code > span.co { color: #888888; font-style: italic; } 
+code > span.ot { color: #007020; } 
+code > span.al { color: #ff0000; font-weight: bold; } 
+code > span.fu { color: #900; font-weight: bold; } 
+code > span.er { color: #a61717; background-color: #e3d2d2; } 
+</style>
+
+
+
+
+</head>
+
+<body>
+
+
+
+
+<h1 class="title toc-ignore">Simulation with MSGPCA</h1>
+
+
+
+<div id="generating-mechanism" class="section level2">
+<h2>Generating mechanism</h2>
+<p>The original four binary patterns on a 6 by 6 block layout are
+expanded to an <code>nside</code> by <code>nside</code> lattice. Spatial
+vectors retain row-major block ordering; coordinates increase x first
+and decrease y between rows, as in the supplied script. The mean is
+<span class="math inline">\(b+F_{sp}W^T+U_mV^T\)</span>. W and V assign
+one spatial and one nonspatial loading category per feature before
+category-specific weighting. Purely spatial genes have V=0; mixed genes
+combine spatial and nonspatial intensities; nonspatial genes have W=0.
+Slice-specific U contains independent Bernoulli(0.2) entries. Counts use
+<code>rnbinom(size=nb_shape,mu=mu)</code> with variance <span class="math inline">\(\mu+\mu^2/\mathrm{nb\_shape}\)</span>. No extra
+dropout is added.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="fu">library</span>(MSGPCA)</span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a>sim <span class="ot">&lt;-</span> <span class="fu">simulation_gg_blocks</span>(<span class="at">nside=</span><span class="dv">12</span>,<span class="at">seed=</span><span class="dv">101</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">names</span>(sim)</span></code></pre></div>
+<pre><code>##  [1] &quot;Y_list&quot;                   &quot;locs_list&quot;               
+##  [3] &quot;true_shared_factors&quot;      &quot;true_local_patterns&quot;     
+##  [5] &quot;true_cluster_labels&quot;      &quot;true_spatial_loadings&quot;   
+##  [7] &quot;true_nonspatial_loadings&quot; &quot;true_nonspatial_factors&quot; 
+##  [9] &quot;gene_groups&quot;              &quot;local_gene_indices&quot;      
+## [11] &quot;perturbations&quot;            &quot;parameters&quot;</code></pre>
+<div class="sourceCode" id="cb3"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">dim</span>(sim<span class="sc">$</span>Y_list[[<span class="dv">1</span>]])</span></code></pre></div>
+<pre><code>## [1] 144 400</code></pre>
+<div class="sourceCode" id="cb5"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>sim<span class="sc">$</span>gene_groups</span></code></pre></div>
+<pre><code>## $spatial
+##  [1]  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
+## [26] 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50
+## 
+## $mixed
+##   [1]  51  52  53  54  55  56  57  58  59  60  61  62  63  64  65  66  67  68
+##  [19]  69  70  71  72  73  74  75  76  77  78  79  80  81  82  83  84  85  86
+##  [37]  87  88  89  90  91  92  93  94  95  96  97  98  99 100 101 102 103 104
+##  [55] 105 106 107 108 109 110 111 112 113 114 115 116 117 118 119 120 121 122
+##  [73] 123 124 125 126 127 128 129 130 131 132 133 134 135 136 137 138 139 140
+##  [91] 141 142 143 144 145 146 147 148 149 150 151 152 153 154 155 156 157 158
+## [109] 159 160 161 162 163 164 165 166 167 168 169 170 171 172 173 174 175 176
+## [127] 177 178 179 180 181 182 183 184 185 186 187 188 189 190 191 192 193 194
+## [145] 195 196 197 198 199 200 201 202 203 204 205 206 207 208 209 210 211 212
+## [163] 213 214 215 216 217 218 219 220 221 222 223 224 225 226 227 228 229 230
+## [181] 231 232 233 234 235 236 237 238 239 240 241 242 243 244 245 246 247 248
+## [199] 249 250 251 252 253 254 255 256 257 258 259 260 261 262 263 264 265 266
+## [217] 267 268 269 270 271 272 273 274 275 276 277 278 279 280 281 282 283 284
+## [235] 285 286 287 288 289 290 291 292 293 294 295 296 297 298 299 300 301 302
+## [253] 303 304 305 306 307 308 309 310 311 312 313 314 315 316 317 318 319 320
+## [271] 321 322 323 324 325 326 327 328 329 330 331 332 333 334 335 336 337 338
+## [289] 339 340 341 342 343 344 345 346 347 348 349 350
+## 
+## $nonspatial
+##  [1] 351 352 353 354 355 356 357 358 359 360 361 362 363 364 365 366 367 368 369
+## [20] 370 371 372 373 374 375 376 377 378 379 380 381 382 383 384 385 386 387 388
+## [39] 389 390 391 392 393 394 395 396 397 398 399 400</code></pre>
+<div class="sourceCode" id="cb7"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>sim<span class="sc">$</span>perturbations[<span class="fu">c</span>(<span class="st">&#39;affected_slices&#39;</span>,<span class="st">&#39;intensity&#39;</span>,<span class="st">&#39;mechanism&#39;</span>)]</span></code></pre></div>
+<pre><code>## $affected_slices
+## [1] 2
+## 
+## $intensity
+## [1] 8
+## 
+## $mechanism
+## [1] &quot;replacement&quot;</code></pre>
+<p>Defaults are 50 spatial + 300 mixed + 50 nonspatial = 400 features.
+The manuscript reports 500; the source does not specify that alternative
+composition. Changing feature counts is supported but does not establish
+exact manuscript reproduction.</p>
+</div>
+<div id="scenarios" class="section level2">
+<h2>Scenarios</h2>
+<table>
+<colgroup>
+<col width="30%" />
+<col width="30%" />
+<col width="40%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Scenario</th>
+<th>Mechanism</th>
+<th align="right">Default intensity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>none</td>
+<td>Conserved baseline</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td>slab</td>
+<td>Replace background counts in y &lt;= 0.3 and x+y &lt;= 0.9
+masks</td>
+<td align="right">20</td>
+</tr>
+<tr class="odd">
+<td>wave</td>
+<td>Replace background counts below sinusoidal boundary and x+y &lt;=
+0.9</td>
+<td align="right">8</td>
+</tr>
+<tr class="even">
+<td>centroid_shift</td>
+<td>Add counts to purely spatial genes in slices 3–5</td>
+<td align="right">25</td>
+</tr>
+</tbody>
+</table>
+<p>Wave boundary is <span class="math inline">\(0.5+0.15\sin(4\pi
+x)+0.04\cos(10\pi x)\)</span>. Replacement groups are disjoint
+contiguous background feature groups, each by default 20%, rounded as in
+the source. Other entries are unchanged. Centroid shifts leave slices
+1–2 unchanged, add wave structure to slice 3, x+y &gt;= 1.2 to slice 4,
+and a circle of squared radius 0.08 centered at (0.5,0.5) to slice 5.
+Any further slices remain unperturbed. This uses the implemented
+<code>inject_spatial_centroid_shifts()</code> mechanism; the script’s
+undefined <code>inject_heterogeneous_features()</code> is not recreated
+from comments.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>slab <span class="ot">&lt;-</span> <span class="fu">simulation_gg_blocks</span>(<span class="at">nside=</span><span class="dv">6</span>,<span class="at">scenario=</span><span class="st">&#39;slab&#39;</span>,<span class="at">seed=</span><span class="dv">101</span>)</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>none <span class="ot">&lt;-</span> <span class="fu">simulation_gg_blocks</span>(<span class="at">nside=</span><span class="dv">6</span>,<span class="at">scenario=</span><span class="st">&#39;none&#39;</span>,<span class="at">seed=</span><span class="dv">101</span>)</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>cohort <span class="ot">&lt;-</span> <span class="fu">simulation_gg_blocks</span>(<span class="at">nside=</span><span class="dv">6</span>,<span class="at">n_slices=</span><span class="dv">5</span>,</span>
+<span id="cb9-4"><a href="#cb9-4" tabindex="-1"></a>                              <span class="at">scenario=</span><span class="st">&#39;centroid_shift&#39;</span>,<span class="at">seed=</span><span class="dv">101</span>)</span>
+<span id="cb9-5"><a href="#cb9-5" tabindex="-1"></a><span class="fu">length</span>(cohort<span class="sc">$</span>true_cluster_labels)</span></code></pre></div>
+<pre><code>## [1] 5</code></pre>
+</div>
+<div id="ground-truth-and-evaluation" class="section level2">
+<h2>Ground truth and evaluation</h2>
+<p>The simulation retains W, V, U for every slice and baseline patterns,
+allowing reconstruction of the generating mean. Exact masks, affected
+slices, intensities, feature indices and replacement/additive status
+identify every local operation. <code>true_local_patterns</code> is zero
+for unaffected slices. Conserved cluster labels always identify four
+original domains plus background, not perturbation masks. Generating
+loadings need not be orthogonal, unlike the fitted model.</p>
+<p>The reproducible experiment scripts under <code>experiments/</code>
+evaluate arithmetic entropy NMI, <span class="math inline">\(2I/(H_A+H_B)\)</span>, ARI, pooled and mean-slice
+metrics separately, and subspace recovery after centering. Both constant
+partitions have NMI one; one constant partition against a nonconstant
+partition has NMI zero. Compare spans or canonical correlations instead
+of individual factor columns. Report leakage of local masks into shared
+scores alongside local recovery; local and shared patterns can
+themselves overlap, so leakage is not a uniquely identifiable parameter
+error. Fixed seeds restore the caller RNG state. One call generates one
+dataset and never writes files.</p>
+</div>
+
+
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

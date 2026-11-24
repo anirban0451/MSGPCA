@@ -1,0 +1,96 @@
+---
+title: "Introduction to MSGPCA"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to MSGPCA}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(collapse=TRUE,comment='#>')
+```
+
+MSGPCA decomposes each observations-by-features matrix into shared and local
+programs, $Y_m\approx F_{s,m}W_s^T+F_{l,m}W_{l,m}^T$. Shared loadings are common;
+local loadings vary by slice. Loading columns are orthonormal and local loadings
+are orthogonal to the shared space. Signs, rotations and allocation ambiguities
+remain. Scores are graph-smoothed using sparse shifted-Laplacian solves.
+
+## Inputs and preprocessing
+
+Provide a list of abundance matrices, with common molecular feature identities
+in identical order, and corresponding coordinate matrices with matching rows.
+Slice sizes and coordinates may differ; no alignment is necessary. The fitter
+never normalizes, centers, scales or transforms inputs. Choose preprocessing
+appropriate to the assay. Sparse inputs are accepted, but initialization,
+residuals and feature covariances can densify.
+
+```{r fit}
+library(MSGPCA)
+sim <- simulation_gg_blocks(nside=6,Jsp=12,Jmix=24,Jns=12,seed=101)
+Y <- lapply(sim$Y_list,log1p)
+fit <- MSGPCA(Y,sim$locs_list,n_shared=5,n_local=2,
+              lambda_shared=.3,lambda_local=.1,seed=101,verbose=FALSE)
+summary(fit)
+plot_convergence(fit)
+```
+
+## Graphs and diagnostics
+
+Mutual k-NN is default; `graph_type='union'` includes either directed neighbor
+relation. `k_shared` and `k_local` specify separate graph sizes, while
+`n_shared` and `n_local` specify factor dimensions. Supplied graph entries are
+combinatorial Laplacians, or `list(type='adjacency',matrix=A)`. Disconnected
+components and isolated vertices are supported. With zero smoothing and no
+coordinates, active scores are unregularized. Zero factor dimension disables a
+component. Diagnostics include initialization as iteration zero, every complete
+penalized objective and increases; the original shared update does not guarantee
+monotonic descent. Final scores and loadings always describe the same state.
+
+## Spatial domain detection
+
+```{r clustering}
+gmm <- cluster_MSGPCA(fit,5,method='gmm',seed=101)
+km <- cluster_MSGPCA(fit,5,method='kmeans',seed=101)
+plot_clusters(gmm)
+head(gmm$raw[[1]])
+head(gmm$refined[[1]])
+```
+
+Shared clustering pools scores across slices; local clustering is independent
+and its cluster identifiers are not aligned. Scores are not implicitly scaled.
+Use `factors=2:5` only with a scientific justification fixed independently of
+truth. GMM covariance models are selected by mclust and retained in `gmm_model`.
+
+Refinement is adapted from SpatialPCA (Shang and Zhou, 2022,
+doi:10.1038/s41467-022-34879-1), distributed under GPL >=3. It uses one sequential
+pass, the focal observation and four (`square`) or six (`hexagon`) neighbors,
+with the original strict frequency rule. Ties use observation order. Conventional
+Visium uses hexagon. The shape does not validate tissue geometry. Duplicates and
+insufficient observations are errors. The default exact k-NN/radius-query implementation retrieves all boundary ties
+and resolves them by observation order; a rowwise reference is available via
+`engine='reference'`. Memory is linear; worst-case distance work is quadratic. Set `refine=FALSE` to retain raw assignments only.
+
+## Denoising and metafeatures
+
+```{r downstream}
+shared <- reconstruct_MSGPCA(fit,'shared',features=1:4)
+local <- reconstruct_MSGPCA(fit,'local',features=1:4)
+all <- reconstruct_MSGPCA(fit,features=1:4)
+stopifnot(isTRUE(all.equal(all[[1]],shared[[1]]+local[[1]])))
+scores <- get_scores(fit,'shared')
+loadings <- get_loadings(fit,'shared')
+head(sort(loadings[,1],decreasing=TRUE))
+head(sort(loadings[,1],decreasing=FALSE))
+head(sort(abs(loadings[,1]),decreasing=TRUE))
+plot_factors(fit,'shared')
+plot_factors(fit,'local')
+plot_loadings(fit,top=8)
+```
+
+Loadings define molecular metafeatures; scores show their spatial activity.
+Large loadings do not imply statistical significance. Local factor column numbers
+across slices do not imply common programs. Reconstructions remain on the supplied
+scale and are not automatically original counts. There is no unobserved-location
+prediction method.
